@@ -9,23 +9,30 @@ from deap import tools
 from deap import gp
 
 
+# Define new functions
+def protectedDiv(left, right):
+    try:
+        return left / right
+    except ZeroDivisionError:
+        return 1
+
 prim = gp.PrimitiveSet("PRIMITIVES", 1)
 prim.addPrimitive(operator.add, 2)
 prim.addPrimitive(operator.sub, 2)
 prim.addPrimitive(operator.mul, 2)
-prim.addPrimitive(operator.truediv, 2)
+prim.addPrimitive(protectedDiv, 2)
 prim.addPrimitive(operator.neg, 1)
 prim.addPrimitive(operator.abs, 1)
 prim.addEphemeralConstant("rand", lambda: random.randint(-1,1))
 prim.renameArguments(ARG0='x')
 
 
-creator.create("Fitness", base.Fitness)
-creator.create("Genotype", gp.PrimitiveTree, fitness = creator.Fitness)
+creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
+creator.create("Genotype", gp.PrimitiveTree, fitness = creator.FitnessMin)
 
 toolbox = base.Toolbox()
 toolbox.register("expr", gp.genHalfAndHalf, pset = prim, min_ = 1, max_ = 2)
-toolbox.register("individual", tools.initIterate, creator.Genotype)
+toolbox.register("individual", tools.initIterate, creator.Genotype, toolbox.expr)
 toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 toolbox.register("compile", gp.compile, pset = prim)
 
@@ -35,8 +42,9 @@ def evalSymbReg(individual, points):
     func = toolbox.compile(expr=individual)
     # Evaluate the mean squared error between the expression
     # and the real function : x**4 + x**3 + x**2 + x
-    sqerrors = ((func(x) - x**4 - x**3 - x**2 - x)**2 for x in points)
-    return math.fsum(sqerrors) / len(points)
+    sqerrors = ((func(x) - x ** 4 - x ** 3 - x ** 2 - x) ** 2 for x in points)
+    return math.fsum(sqerrors) / len(points),
+
 
 toolbox.register("evaluate", evalSymbReg, points=[x/10. for x in range(-10,10)])
 toolbox.register("select", tools.selTournament, tournsize=3)
@@ -54,7 +62,7 @@ def main():
     pop = toolbox.population(n = 1)
     hof = tools.HallOfFame(1)
 
-    stat_fit = tools.Statistics(lambda ind: ind.fitness.value)
+    stat_fit = tools.Statistics(lambda ind: ind.fitness.values)
     stat_size = tools.Statistics(len)
     mstats = tools.MultiStatistics(fitness=stat_fit, size=stat_size)
     mstats.register("avg", np.mean)
