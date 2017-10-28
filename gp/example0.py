@@ -1,6 +1,7 @@
 import operator
 import math
 import random
+
 import numpy
 
 from deap import algorithms
@@ -74,7 +75,6 @@ def main():
 
     pop, log = algorithms.eaSimple(pop, toolbox, 0.5, 0.1, 40, stats=mstats,
                                    halloffame=hof, verbose=True)
-    
     # print log
     return pop, log, hof
 

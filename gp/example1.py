@@ -18,7 +18,7 @@ def protectedDiv(left, right):
         return 1
 
 
-pset = gp.PrimitiveSet("MAIN", 1)
+pset = gp.PrimitiveSet("MAIN", 2)
 pset.addPrimitive(operator.add, 2)
 pset.addPrimitive(operator.sub, 2)
 pset.addPrimitive(operator.mul, 2)
@@ -27,7 +27,8 @@ pset.addPrimitive(operator.neg, 1)
 pset.addPrimitive(math.cos, 1)
 pset.addPrimitive(math.sin, 1)
 pset.addEphemeralConstant("rand101", lambda: random.randint(-1, 1))
-pset.renameArguments(ARG0='x')
+pset.renameArguments(ARG0='x1')
+pset.renameArguments(ARG1='x2')
 
 creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
 creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMin)
@@ -44,11 +45,15 @@ def evalSymbReg(individual, points):
     func = toolbox.compile(expr=individual)
     # Evaluate the mean squared error between the expression
     # and the real function : x**4 + x**3 + x**2 + x
-    sqerrors = ((func(x) - x ** 4 - x ** 3 - x ** 2 - x) ** 2 for x in points)
+    sqerrors = []
+    for point in points:
+        x1 = point[0]
+        x2 = point[1]
+        sqerrors.append((func(x1,x2) - x1 ** 4 - x1 ** 3 - x2 ** 2 - x2) ** 2)
     return math.fsum(sqerrors) / len(points),
 
 
-toolbox.register("evaluate", evalSymbReg, points=[x / 10. for x in range(-10, 10)])
+toolbox.register("evaluate", evalSymbReg, points=[(2,4), (3,1), (1,1)])
 toolbox.register("select", tools.selTournament, tournsize=3)
 toolbox.register("mate", gp.cxOnePoint)
 toolbox.register("expr_mut", gp.genFull, min_=0, max_=2)
@@ -74,7 +79,7 @@ def main():
 
     pop, log = algorithms.eaSimple(pop, toolbox, 0.5, 0.1, 40, stats=mstats,
                                    halloffame=hof, verbose=True)
-    
+    print(pop[1])
     # print log
     return pop, log, hof
 
