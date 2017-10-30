@@ -1,4 +1,5 @@
 import numpy as np
+import re as regex
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import random
@@ -6,12 +7,13 @@ import copy
 from sys import stdout
 from sympy import *
 
+seed = 300
 popsize = 10
+ndim = 20
 maxNumberOfOptions = 30
-numberIterations = 100
-probabilityOfMutatingCoefficient = 0.3
-standardDeviationForMutation = 10
+numberIterations = 1
 
+probabilityOfMutatingCoefficient = 0.3
 probabilityOfAddingFeature = 0.1
 probabilityOfRemovingFeature = 0.1
 probabilityOfAddingInteraction = 0.1
@@ -22,6 +24,8 @@ probabilityOfSwitchingSign = 0.05
 probabilityOfUniformCrossover = 0.1
 probabilityOfBreeding = 0.5
 
+standardDeviationForMutation = 10
+
 # not implemented here
 probabilityOfChangingCoefficientOfInfluencingOptions = 0.1
 probabilityOfChangingCoefficientOfNonInfluencingOptions = 0.1
@@ -31,10 +35,12 @@ targetNumberOfInteractions = 10
 targetNumberOfIndividualOptions = 5
 numberOfNegativFeatures = 3
 numberOfAbsolutCoefficientsAbove80 = 5
-
+targetCorrelationHigh = 0.8
+targetCorrelationLow = 0.2
 
 class Model:
     def __init__(self, terms):
+        self.allOptions = ["o" + str(i) for i in range(ndim)]
         self.individualOptions = []
         self.interactions = []
         for i in range(len(terms)):
@@ -44,17 +50,13 @@ class Model:
                 self.individualOptions.append(terms[i])
 
     def evaluateModel(self, values):
-        L = len(self.individualOptions)
-        if len(values) != L:
+        if len(values) != ndim:
             raise ValueError()
 
-        options = []
-        for i in range(L):
-            options.append(self.individualOptions[i].options[0])
-
         vars = {}
-        for i in range(L):
-            vars[options[i]] = values[i]
+        for i in range(ndim):
+            idx = int(regex.findall("\d+$", self.allOptions[i])[0])
+            vars[self.allOptions[i]] = values[idx]
         f = sympify(self.__str__())
 
         return f.subs(vars).evalf()
@@ -79,7 +81,8 @@ class Model:
         self.individualOptions.pop(position)
 
     def addOption(self, coefficient):
-        self.individualOptions.append(Term(["o" + str(len(self.individualOptions) + 1)], coefficient))
+        if len(self.individualOptions) < ndim:
+            self.individualOptions.append(Term(["o" + str(len(self.individualOptions) + 1)], coefficient))
 
     def addInteraction(self, term):
         self.interactions.append(term)
@@ -147,6 +150,19 @@ class Term:
         else:
             return True
 
+# KL divergence
+def KLdiv(p, q):
+   """Kullback-Leibler divergence D(P || Q) for discrete distributions
+
+    Parameters
+    ----------
+    p, q : array-like, dtype=float, shape=n
+    Discrete probability distributions.
+   """
+   p = np.asarray(p, dtype=np.float)
+   q = np.asarray(q, dtype=np.float)
+   div = np.sum(np.where(p != 0, p * np.log(p / q), 0))
+   return div
 
 # Mutation
 def mutate(model):
@@ -167,7 +183,7 @@ def mutate(model):
                 option2 = random.randint(0, model.getNumberOfOptions())
             term = Term(["o" + str(option1), "o" + str(option2)], random.randint(-100, 100))
         else:
-            # threewise
+            # three-wise
             option1 = random.randint(0, model.getNumberOfOptions())
             option2 = random.randint(0, model.getNumberOfOptions())
             while (option1 == option2):
@@ -251,8 +267,25 @@ def selectParent(allModels, allFitnesses):
     return fitnessProportionateSelection(allModels, allFitnesses)
 
 
-def assessFitness(model):
-    # compute knDivergence not implemented
+def assessFitness(model, sourceModel = None, weights = None):
+    # compute klDivergence not implemented
+
+    n = 1000
+    xTest = np.random.randint(2, size = (n, ndim))
+    yTestSource = np.zeros(n)
+    yTestTarget = np.zeros(n)
+
+    for i in range(n):
+        yTestSource[i] = sourceModel.evaluateModel(xTest[i, :])
+        yTestTarget[i] = model.evaluateModel(xTest[i, :])
+
+    corr = abs(np.corrcoef(yTestSource, yTestTarget)[1,0])
+    if corr < targetCorrelationLow:
+        correlationDissimilarity = 1
+    else:
+        correlationDissimilarity = targetCorrelationLow / corr
+
+    perfdistSimilarity = 1 / (1 + KLdiv(yTestSource, yTestTarget))
     interactionSimilarity = 1 / (1 + abs(model.getNumberOfInteractions() - targetNumberOfInteractions))
     optionSimilarity = 1 / (1 + abs(model.getNumberOfOptions() - targetNumberOfIndividualOptions))
     negativeOptions = 0
@@ -268,11 +301,15 @@ def assessFitness(model):
         if abs(model.getInteractions()[i].coefficient) > 80:
             highCoefficients += 1
     influencingSimilarity = 1 / (1 + abs(highCoefficients - numberOfAbsolutCoefficientsAbove80))
-    fitness = (interactionSimilarity + optionSimilarity + negativeSimilarity + influencingSimilarity) / 4
+    if weights != None:
+        fitness = np.average([interactionSimilarity, optionSimilarity, negativeSimilarity, influencingSimilarity, correlationDissimilarity, perfdistSimilarity])
+    else:
+        fitness = np.average([interactionSimilarity, optionSimilarity, negativeSimilarity, influencingSimilarity, correlationDissimilarity, perfdistSimilarity], weights=weights)
+
     return fitness
 
 
-def genetic_algorithm(allModels, iterations=100):
+def genetic_algorithm(allModels, startingModel, iterations=100):
     best = None
     bestFitness = None
     bestHistory = []
@@ -284,7 +321,7 @@ def genetic_algorithm(allModels, iterations=100):
         print("i2")
         # assessing the fitness of all models
         for i in range(len(allModels)):
-            fitness = assessFitness(allModels[i])
+            fitness = assessFitness(allModels[i], startingModel)
             allFitness.append(fitness)
             # allIndividuals.append((generation,fitness))
             if best == None or fitness > bestFitness:
@@ -293,7 +330,7 @@ def genetic_algorithm(allModels, iterations=100):
                 bestHistory.append((allModels[i], bestFitness))
             print(i)
         allModels = breed(allModels, allFitness)
-        generation = generation + 1
+        generation += 1
         stdout.write("\r%d" % generation)
         stdout.flush()
     stdout.write("\n")
@@ -301,6 +338,8 @@ def genetic_algorithm(allModels, iterations=100):
 
 
 def main():
+    np.random.seed(seed)
+
     given_model = []
     size = random.randint(5, 10)
     individualOptions = int(size * 0.8)
@@ -317,10 +356,9 @@ def main():
             term = Term(["o" + str(option1), "o" + str(option2)], random.randint(-100, 100))
             given_model.append(term)
     startingModel = Model(given_model)
-    startingModel.evaluateModel([1]*individualOptions)
 
     allModels = [copy.deepcopy(startingModel) for i in range(popsize)]
-    best, bestFitness, bestHistory, allModels = genetic_algorithm(allModels)
+    best, bestFitness, bestHistory, allModels = genetic_algorithm(allModels, startingModel)
     print(best)
     print(bestFitness)
 
