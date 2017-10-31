@@ -10,7 +10,7 @@ from sympy import *
 seed = 300
 popsize = 10
 ndim = 20
-maxNumberOfOptions = 30
+maxNumberOfOptions = 10
 numberIterations = 1
 
 probabilityOfMutatingCoefficient = 0.3
@@ -81,7 +81,7 @@ class Model:
         self.individualOptions.pop(position)
 
     def addOption(self, coefficient):
-        if len(self.individualOptions) < ndim:
+        if len(self.individualOptions) < maxNumberOfOptions:
             self.individualOptions.append(Term(["o" + str(len(self.individualOptions) + 1)], coefficient))
 
     def addInteraction(self, term):
@@ -358,7 +358,7 @@ def main():
     startingModel = Model(given_model)
 
     allModels = [copy.deepcopy(startingModel) for i in range(popsize)]
-    best, bestFitness, bestHistory, allModels = genetic_algorithm(allModels, startingModel)
+    best, bestFitness, bestHistory, allModels = genetic_algorithm(allModels, startingModel, numberIterations)
     print(best)
     print(bestFitness)
 
