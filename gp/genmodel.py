@@ -6,12 +6,13 @@ import random
 import copy
 from sys import stdout
 from sympy import *
+from scipy.stats import entropy
 
 seed = 300
 popsize = 10
 ndim = 20
 maxNumberOfOptions = 10
-numberIterations = 1
+numberIterations = 4
 
 probabilityOfMutatingCoefficient = 0.3
 probabilityOfAddingFeature = 0.1
@@ -161,7 +162,10 @@ def KLdiv(p, q):
    """
    p = np.asarray(p, dtype=np.float)
    q = np.asarray(q, dtype=np.float)
-   div = np.sum(np.where(p != 0, p * np.log(p / q), 0))
+   if np.all(q) != 0:
+       div = np.sum(np.where(p != 0, p * np.log(p / q), 0))
+   else:
+       div = 0
    return div
 
 # Mutation
@@ -318,7 +322,6 @@ def genetic_algorithm(allModels, startingModel, iterations=100):
         allFitness = []
         for i in range(len(allModels)):
             allModels[i] = mutate(allModels[i])
-        print("i2")
         # assessing the fitness of all models
         for i in range(len(allModels)):
             fitness = assessFitness(allModels[i], startingModel)
@@ -331,9 +334,9 @@ def genetic_algorithm(allModels, startingModel, iterations=100):
             print(i)
         allModels = breed(allModels, allFitness)
         generation += 1
-        stdout.write("\r%d" % generation)
-        stdout.flush()
-    stdout.write("\n")
+        print("%d" % generation)
+        #stdout.flush()
+    #stdout.write("\n")
     return best, bestFitness, bestHistory, allModels
 
 
