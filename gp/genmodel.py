@@ -334,15 +334,13 @@ def genetic_algorithm(allModels, startingModel, iterations=100):
             print(i)
         allModels = breed(allModels, allFitness)
         generation += 1
-        print("%d" % generation)
+        print("%d\n" % generation)
         #stdout.flush()
     #stdout.write("\n")
     return best, bestFitness, bestHistory, allModels
 
 
-def main():
-    np.random.seed(seed)
-
+def genModel():
     given_model = []
     size = random.randint(5, 10)
     individualOptions = int(size * 0.8)
@@ -358,7 +356,26 @@ def main():
                 option2 = random.randint(0, individualOptions - 1)
             term = Term(["o" + str(option1), "o" + str(option2)], random.randint(-100, 100))
             given_model.append(term)
-    startingModel = Model(given_model)
+    generatedModel = Model(given_model)
+    return generatedModel
+
+def genModelfromString(txtModel):
+    terms = regex.split("[+-]", txtModel)
+    generatedModel = []
+    for i in range(len(terms)):
+        term = regex.split("[*]", terms[i])
+        generatedModel.append(Term(term[1:len(term)], float(term[0])))
+    return generatedModel
+
+def main():
+    np.random.seed(seed)
+
+    # Generate the starting model
+    # startingModel = genModel()
+
+    perf_model_txt = "2*o1 + 3*o1*o2 + 4*o2"
+    perf_model = genModelfromString(perf_model_txt)
+    startingModel = Model(perf_model)
 
     allModels = [copy.deepcopy(startingModel) for i in range(popsize)]
     best, bestFitness, bestHistory, allModels = genetic_algorithm(allModels, startingModel, numberIterations)

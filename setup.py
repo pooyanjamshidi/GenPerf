@@ -10,9 +10,9 @@ with open('LICENSE') as f:
     license = f.read()
 
 setup(
-    name='ployparser',
+    name='GenPerf',
     version='0.1.0',
-    description='Expression parser for BRASS MARS project',
+    description='Symbolic regression for evaluating transfer learning approaches',
     long_description=readme,
     author='Pooyan Jamshidi',
     author_email='pooyan.jamshidi@gmail.com',
