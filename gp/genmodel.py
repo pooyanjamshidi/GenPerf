@@ -7,10 +7,11 @@ import copy
 from sys import stdout
 from sympy import *
 from scipy.stats import entropy
+import csv
 
 seed = 300
 popsize = 10
-ndim = 20
+ndim = 3
 maxNumberOfOptions = 10
 numberIterations = 4
 
@@ -44,6 +45,7 @@ class Model:
         self.allOptions = ["o" + str(i) for i in range(ndim)]
         self.individualOptions = []
         self.interactions = []
+        self.name = ""
         for i in range(len(terms)):
             if terms[i].isInteraction():
                 self.interactions.append(terms[i])
@@ -271,6 +273,21 @@ def selectParent(allModels, allFitnesses):
     return fitnessProportionateSelection(allModels, allFitnesses)
 
 
+def evaluate2csv(model, xTest):
+    n = len(xTest)
+    yTest = np.zeros(n)
+    for i in range(n):
+        yTest[i] = model.evaluateModel(xTest[i, :])
+
+    with open(model.name + ".csv", "w") as csvfile:
+        fieldnames = ["y"]
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+        writer.writeheader()
+        for i in range(n):
+            writer.writerow({"y": yTest[i]})
+
+
 def assessFitness(model, sourceModel = None, weights = None):
     # compute klDivergence not implemented
 
@@ -360,7 +377,7 @@ def genModel():
     return generatedModel
 
 def genModelfromString(txtModel):
-    terms = regex.split("[+-]", txtModel)
+    terms = regex.split("[+-]\s+", txtModel)
     generatedModel = []
     for i in range(len(terms)):
         term = regex.split("[*]", terms[i])
@@ -376,6 +393,8 @@ def main():
     perf_model_txt = "2*o1 + 3*o1*o2 + 4*o2"
     perf_model = genModelfromString(perf_model_txt)
     startingModel = Model(perf_model)
+    startingModel.name = "test"
+
 
     allModels = [copy.deepcopy(startingModel) for i in range(popsize)]
     best, bestFitness, bestHistory, allModels = genetic_algorithm(allModels, startingModel, numberIterations)
