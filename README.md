@@ -1,7 +1,7 @@
 # GenPerf
 
 ## Intorduction
-GenPerf is a symbolic regression tool that generates synthetic data for 
+GenPerf is a [symbolic regression](https://en.wikipedia.org/wiki/Symbolic_regression) tool that generates synthetic data for 
 evaluating transfer learning approaches. At a high level, GenPerf receives 
 a source performance model that has been specified with the 
 [SPLConqueror](http://fosd.de/SPLConqueror) format. GenPerf then
@@ -57,6 +57,21 @@ probabilityOfUniformCrossover = 0.1
 probabilityOfBreeding = 0.5
 standardDeviationForMutation = 10
 ```
+
+## Mutation operators
+
+GenPerf searches the space of performance influence models to find the model 
+that best fits the specified hypotheses in terms of similarities of the source 
+and the target. 
+Mutation is a genetic operator used to alter the source model
+from one generation of a population to the next. 
+GenPerf implements the following operators, however, it can be easily extended
+by changing `mutate` method:
+* Add/remove interaction
+* Add/remove option
+* Change the coefficient for options and interactions 
+* Sign switch
+
 
 ## Usage
 
