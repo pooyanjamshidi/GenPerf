@@ -94,7 +94,7 @@ python genmodel.py
 
 ## Contact
 
-If you notice a bug, want to request a feature, or have a question or feedback, please send an email to the tool maintainer:
+If you notice a bug, want to request a feature, or have a question or feedback, please send an email to the tool maintainers:
 
-[Pooyan Jamshidi](https://github.com/pooyanjamshidi), pooyan.jamshidi@gmail.com
-[Norbert Siegmund](https://github.com/nsiegmun), norbert.siegmund@uni-weimar.de
+* [Pooyan Jamshidi](https://github.com/pooyanjamshidi), pooyan.jamshidi@gmail.com
+* [Norbert Siegmund](https://github.com/nsiegmun), norbert.siegmund@uni-weimar.de
