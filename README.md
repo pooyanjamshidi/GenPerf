@@ -42,7 +42,7 @@ Lrzip: 43838 * level + 2218747 * compressionZpaq + 288311 * compressionLrzip + 1
 ```   
 
 
-## Genetic mutation parameters
+## Setting the genetic mutation parameters
 ```python
 # mutation properties
 probabilityOfMutatingCoefficient = 0.3
