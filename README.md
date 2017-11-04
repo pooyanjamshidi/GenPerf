@@ -15,7 +15,7 @@ several criteria:
 * Similarity in terms of number of option interactions
 * Similarity in terms of performance distribution
 
-![GenPerf Architecture](/docs/architecture.jpg?raw=true "Architecture")
+![GenPerf Architecture](https://github.com/pooyanjamshidi/GenPerf/blob/master/docs/architecture.png)
 
 ```python
 # goal
@@ -91,3 +91,10 @@ evaluate2csv(best, xTest)
 ```python
 python genmodel.py
 ```
+
+## Contact
+
+If you notice a bug, want to request a feature, or have a question or feedback, please send an email to the tool maintainer:
+
+[Pooyan Jamshidi](https://github.com/pooyanjamshidi), pooyan.jamshidi@gmail.com
+[Norbert Siegmund](https://github.com/nsiegmun), norbert.siegmund@uni-weimar.de
