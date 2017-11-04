@@ -15,7 +15,7 @@ several criteria:
 * Similarity in terms of number of option interactions
 * Similarity in terms of performance distribution
 
-![GenPerf Architecture](https://github.com/pooyanjamshidi/GenPerf/blob/master/docs/architecture.png)
+![GenPerf Architecture](https://github.com/pooyanjamshidi/GenPerf/blob/master/docs/architecture1.png)
 
 ```python
 # goal
