@@ -1,20 +1,18 @@
 import numpy as np
 import re as regex
-import matplotlib as mpl
-import matplotlib.pyplot as plt
 import random
 import copy
-from sys import stdout
 from sympy import *
-from scipy.stats import entropy
 import csv
 
+# generic properties
 seed = 300
 popsize = 10
 ndim = 3
 maxNumberOfOptions = 10
 numberIterations = 4
 
+# mutation properties
 probabilityOfMutatingCoefficient = 0.3
 probabilityOfAddingFeature = 0.1
 probabilityOfRemovingFeature = 0.1
@@ -25,7 +23,6 @@ probabilityOfThreeWiseInteraction = 0.2
 probabilityOfSwitchingSign = 0.05
 probabilityOfUniformCrossover = 0.1
 probabilityOfBreeding = 0.5
-
 standardDeviationForMutation = 10
 
 # not implemented here
@@ -400,6 +397,10 @@ def main():
     best, bestFitness, bestHistory, allModels = genetic_algorithm(allModels, startingModel, numberIterations)
     print(best)
     print(bestFitness)
+
+    n = 1000
+    xTest = np.random.randint(2, size=(n, ndim))
+    evaluate2csv(best, xTest)
 
 
 if __name__ == '__main__':
