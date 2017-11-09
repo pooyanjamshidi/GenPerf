@@ -1,4 +1,5 @@
 import numpy as np
+from scipy import stats
 import re as regex
 import random
 import copy
@@ -7,13 +8,12 @@ import csv
 
 # generic properties
 seed = 300
-popsize = 10
-ndim = 3
+popsize = 5
 maxNumberOfOptions = 10
-numberIterations = 4
+numberIterations = 100
 
 # mutation properties
-probabilityOfMutatingCoefficient = 0.3
+probabilityOfMutatingCoefficient = 0.8
 probabilityOfAddingFeature = 0.1
 probabilityOfRemovingFeature = 0.1
 probabilityOfAddingInteraction = 0.1
@@ -30,8 +30,8 @@ probabilityOfChangingCoefficientOfInfluencingOptions = 0.1
 probabilityOfChangingCoefficientOfNonInfluencingOptions = 0.1
 
 # goal
-targetNumberOfInteractions = 10
-targetNumberOfIndividualOptions = 5
+targetNumberOfInteractions = 5
+targetNumberOfIndividualOptions = 12
 numberOfNegativFeatures = 3
 numberOfAbsolutCoefficientsAbove80 = 5
 targetCorrelationHigh = 0.8
@@ -75,14 +75,16 @@ class Model:
         return len(self.individualOptions)
 
     def removeInteraction(self, position):
-        self.interactions.pop(position)
+        if len(self.interactions) >= 1:
+            self.interactions.pop(position)
 
     def removeIndividualOption(self, position):
-        self.individualOptions.pop(position)
+        if len(self.individualOptions) >= 2: # for a model to be valid, at least one individual option is needed
+            self.individualOptions.pop(position)
 
     def addOption(self, coefficient):
-        if len(self.individualOptions) < maxNumberOfOptions:
-            self.individualOptions.append(Term(["o" + str(len(self.individualOptions) + 1)], coefficient))
+        if len(self.individualOptions) < ndim:
+            self.individualOptions.append(Term(coefficient, ["o" + str(len(self.individualOptions) + 1)]))
 
     def addInteraction(self, term):
         self.interactions.append(term)
@@ -112,7 +114,9 @@ class Model:
                 str2 += str(self.individualOptions[i]) + " + "
             else:
                 str2 += str(self.individualOptions[i])
-        str2 += " + "
+
+        if Li > 0:
+            str2 += " + "
         for i in range(len(self.interactions)):
             if i < Li - 1:
                 str2 += str(self.interactions[i]) + " + "
@@ -122,7 +126,7 @@ class Model:
 
 
 class Term:
-    def __init__(self, options, coefficient):
+    def __init__(self, coefficient, options = "1"): # The default value is for the constant term
         self.options = options
         self.coefficient = coefficient
 
@@ -161,10 +165,8 @@ def KLdiv(p, q):
    """
    p = np.asarray(p, dtype=np.float)
    q = np.asarray(q, dtype=np.float)
-   if np.all(q) != 0:
-       div = np.sum(np.where(p != 0, p * np.log(p / q), 0))
-   else:
-       div = 0
+   div = np.sum(np.where(p != 0, p * np.log(p / q), 0))
+
    return div
 
 # Mutation
@@ -184,7 +186,7 @@ def mutate(model):
             option2 = random.randint(0, model.getNumberOfOptions())
             while (option1 == option2):
                 option2 = random.randint(0, model.getNumberOfOptions())
-            term = Term(["o" + str(option1), "o" + str(option2)], random.randint(-100, 100))
+            term = Term(random.randint(-100, 100), ["o" + str(option1), "o" + str(option2)])
         else:
             # three-wise
             option1 = random.randint(0, model.getNumberOfOptions())
@@ -194,7 +196,7 @@ def mutate(model):
             option3 = random.randint(0, model.getNumberOfOptions())
             while (option1 == option3 or option2 == option3):
                 option3 = random.randint(0, model.getNumberOfOptions())
-            term = Term(["o" + str(option1), "o" + str(option2), "o" + str(option3)], random.randint(-100, 100))
+            term = Term(random.randint(-100, 100), ["o" + str(option1), "o" + str(option2), "o" + str(option3)])
         model.addInteraction(term)
 
     # add option?
@@ -285,17 +287,14 @@ def evaluate2csv(model, xTest):
             writer.writerow({"y": yTest[i]})
 
 
-def assessFitness(model, sourceModel = None, weights = None):
+def assessFitness(model, yTestSource = None, yTestTarget = None, weights = None):
     # compute klDivergence not implemented
 
-    n = 1000
-    xTest = np.random.randint(2, size = (n, ndim))
-    yTestSource = np.zeros(n)
-    yTestTarget = np.zeros(n)
+    # calculating kernel densities for source and target
 
-    for i in range(n):
-        yTestSource[i] = sourceModel.evaluateModel(xTest[i, :])
-        yTestTarget[i] = model.evaluateModel(xTest[i, :])
+    kernel_s = stats.gaussian_kde(yTestSource)
+    kernel_t = stats.gaussian_kde(yTestTarget)
+
 
     corr = abs(np.corrcoef(yTestSource, yTestTarget)[1,0])
     if corr < targetCorrelationLow:
@@ -303,27 +302,37 @@ def assessFitness(model, sourceModel = None, weights = None):
     else:
         correlationDissimilarity = targetCorrelationLow / corr
 
-    perfdistSimilarity = 1 / (1 + KLdiv(yTestSource, yTestTarget))
+    kl = KLdiv(kernel_s.pdf(yTestSource), kernel_t.pdf(yTestTarget))
+    if not np.isnan(kl):
+        perfdistSimilarity = 1 / (1 + kl)
+    else:
+        perfdistSimilarity = 0
     interactionSimilarity = 1 / (1 + abs(model.getNumberOfInteractions() - targetNumberOfInteractions))
     optionSimilarity = 1 / (1 + abs(model.getNumberOfOptions() - targetNumberOfIndividualOptions))
-    negativeOptions = 0
-    for i in range(len(model.getIndividualOptions())):
-        if model.getIndividualOptions()[i].coefficient < 0:
-            negativeOptions += 1
-    negativeSimilarity = 1 / (1 + abs(negativeOptions - numberOfNegativFeatures))
-    highCoefficients = 0
-    for i in range(len(model.getIndividualOptions())):
-        if abs(model.getIndividualOptions()[i].coefficient) > 80:
-            highCoefficients += 1
-    for i in range(len(model.getInteractions())):
-        if abs(model.getInteractions()[i].coefficient) > 80:
-            highCoefficients += 1
-    influencingSimilarity = 1 / (1 + abs(highCoefficients - numberOfAbsolutCoefficientsAbove80))
-    if weights != None:
-        fitness = np.average([interactionSimilarity, optionSimilarity, negativeSimilarity, influencingSimilarity, correlationDissimilarity, perfdistSimilarity])
-    else:
-        fitness = np.average([interactionSimilarity, optionSimilarity, negativeSimilarity, influencingSimilarity, correlationDissimilarity, perfdistSimilarity], weights=weights)
 
+    # These other fitness factors can be added if necessary for the problem
+
+    # negativeOptions = 0
+    # for i in range(len(model.getIndividualOptions())):
+    #     if model.getIndividualOptions()[i].coefficient < 0:
+    #         negativeOptions += 1
+    # negativeSimilarity = 1 / (1 + abs(negativeOptions - numberOfNegativFeatures))
+    # highCoefficients = 0
+    # for i in range(len(model.getIndividualOptions())):
+    #     if abs(model.getIndividualOptions()[i].coefficient) > 80:
+    #         highCoefficients += 1
+    # for i in range(len(model.getInteractions())):
+    #     if abs(model.getInteractions()[i].coefficient) > 80:
+    #         highCoefficients += 1
+    # influencingSimilarity = 1 / (1 + abs(highCoefficients - numberOfAbsolutCoefficientsAbove80))
+
+    if weights != None:
+        fitness = np.average([interactionSimilarity, optionSimilarity, correlationDissimilarity, perfdistSimilarity])
+    else:
+        fitness = np.average([interactionSimilarity, optionSimilarity, correlationDissimilarity, perfdistSimilarity], weights=weights)
+
+    if np.isnan(fitness):
+        print("fitness is nan")
     return fitness
 
 
@@ -332,20 +341,33 @@ def genetic_algorithm(allModels, startingModel, iterations=100):
     bestFitness = None
     bestHistory = []
     generation = 1
+
+    n = 500
+    xTest = np.random.randint(2, size = (n, ndim))
+    yTestSource = np.zeros(n)
+    yTestTarget = np.zeros(n)
+
+    for idx in range(n):
+        yTestSource[idx] = startingModel.evaluateModel(xTest[idx, :])
+
     while (generation <= iterations):
         allFitness = []
         for i in range(len(allModels)):
             allModels[i] = mutate(allModels[i])
         # assessing the fitness of all models
         for i in range(len(allModels)):
-            fitness = assessFitness(allModels[i], startingModel)
+
+            for idx in range(n):
+                yTestTarget[idx] = allModels[i].evaluateModel(xTest[idx, :])
+
+            fitness = assessFitness(allModels[i], yTestSource, yTestTarget)
             allFitness.append(fitness)
             # allIndividuals.append((generation,fitness))
             if best == None or fitness > bestFitness:
                 best = allModels[i]
                 bestFitness = fitness
                 bestHistory.append((allModels[i], bestFitness))
-            print(i)
+            print(i, allFitness, bestFitness)
         allModels = breed(allModels, allFitness)
         generation += 1
         print("%d\n" % generation)
@@ -361,14 +383,14 @@ def genModel():
     interactions = size - individualOptions
     for i in range(size):
         if i < individualOptions:
-            term = Term(["o" + str(i)], random.randint(-100, 100))
+            term = Term(random.randint(-100, 100), ["o" + str(i)])
             given_model.append(term)
         else:
             option1 = random.randint(0, individualOptions - 1)
             option2 = random.randint(0, individualOptions - 1)
             while (option1 == option2):
                 option2 = random.randint(0, individualOptions - 1)
-            term = Term(["o" + str(option1), "o" + str(option2)], random.randint(-100, 100))
+            term = Term( random.randint(-100, 100), ["o" + str(option1), "o" + str(option2)])
             given_model.append(term)
     generatedModel = Model(given_model)
     return generatedModel
@@ -378,7 +400,17 @@ def genModelfromString(txtModel):
     generatedModel = []
     for i in range(len(terms)):
         term = regex.split("[*]", terms[i])
-        generatedModel.append(Term(term[1:len(term)], float(term[0])))
+        coeff = 1
+        idx = -1
+        for index in range(len(term)):
+            if term[index].replace('.','',1).isdigit():
+                coeff = float(term[index])
+                idx = index
+
+        if idx != -1: # we have a explicit coefficient, i.e., 2*o1 instead of o1
+            term.pop(idx)
+        generatedModel.append(Term(coeff, term))
+
     return generatedModel
 
 def main():
@@ -387,10 +419,24 @@ def main():
     # Generate the starting model
     # startingModel = genModel()
 
-    perf_model_txt = "2*o1 + 3*o1*o2 + 4*o2"
+    global ndim
+    ndim = 20
+    n = 1000
+
+    perf_model_txt = "21 + 2.1*o1 + 4.2*o2 + 0.1*o3 + 100*o4 + 2*o5 + 0.1*o6 + o7 + o8 + o9 + o10 + 23*o1*o3 + 2*o4*o7 + o8*o9*o10"
     perf_model = genModelfromString(perf_model_txt)
     startingModel = Model(perf_model)
-    startingModel.name = "test"
+    startingModel.name = "source"
+
+    # Generate response data for the source model
+
+    xTest = np.random.randint(2, size = (n, ndim))
+    yTestSource = np.zeros(n)
+
+    for i in range(n):
+        yTestSource[i] = startingModel.evaluateModel(xTest[i, :])
+
+    evaluate2csv(startingModel, xTest)
 
 
     allModels = [copy.deepcopy(startingModel) for i in range(popsize)]
@@ -398,8 +444,7 @@ def main():
     print(best)
     print(bestFitness)
 
-    n = 1000
-    xTest = np.random.randint(2, size=(n, ndim))
+    best.name = "target"
     evaluate2csv(best, xTest)
 
 
