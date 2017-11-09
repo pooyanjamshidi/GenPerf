@@ -5,6 +5,7 @@ import random
 import copy
 from sympy import *
 import csv
+from gp.lib import *
 
 # generic properties
 seed = 300
@@ -40,14 +41,17 @@ targetCorrelationLow = 0.2
 class Model:
     def __init__(self, terms):
         self.allOptions = ["o" + str(i) for i in range(ndim)]
+        self.constant = 0
         self.individualOptions = []
         self.interactions = []
         self.name = ""
         for i in range(len(terms)):
             if terms[i].isInteraction():
                 self.interactions.append(terms[i])
-            else:
+            elif terms[i].isIndividualOption():
                 self.individualOptions.append(terms[i])
+            elif terms[i].isConstant():
+                self.constant = float(terms[i].options[0])
 
     def evaluateModel(self, values):
         if len(values) != ndim:
@@ -60,6 +64,29 @@ class Model:
         f = sympify(self.__str__())
 
         return f.subs(vars).evalf()
+
+    def evaluateModelFast(self, xTest):
+        Lo = len(self.individualOptions)
+        Li = len(self.interactions)
+        A = xTest
+
+        M = np.zeros(ndim + Li)
+
+        for i in range(Lo):
+            M[self.allOptions.index(self.individualOptions[i].options[0].replace(" ", "")) - 1] = self.individualOptions[i].coefficient
+
+        for i in range(Li):
+            options = self.interactions[i].options
+            coeff = self.interactions[i].coefficient
+            M[ndim + i - 1] = coeff
+
+            A = np.append(A, A[:, self.allOptions.index(options[0].replace(" ", "")):self.allOptions.index(options[0].replace(" ", "")) + 1], axis=1)
+            for idx in range(len(options) - 1):
+                A[:, ndim + i] = A[:, ndim + i] * A[:, self.allOptions.index(options[idx].replace(" ", ""))]
+
+        return np.dot(A, M) + self.constant
+
+
 
 
     def getInteractions(self):
@@ -127,8 +154,8 @@ class Model:
 
 class Term:
     def __init__(self, coefficient, options = "1"): # The default value is for the constant term
-        self.options = options
         self.coefficient = coefficient
+        self.options = options
 
     def __str__(self):
         str2 = str(self.coefficient) + " * "
@@ -142,8 +169,14 @@ class Term:
             str2 += str(self.options[0])
         return str2
 
+    def isConstant(self):
+        if len(self.options) == 1 and self.options[0].replace(" ", "").replace('.','',1).isdigit():
+            return True
+        else:
+            return False
+
     def isIndividualOption(self):
-        if len(self.options) == 1:
+        if len(self.options) == 1 and not self.options[0].replace(" ", "").replace('.','',1).isdigit():
             return True
         else:
             return False
@@ -390,7 +423,7 @@ def genModel():
             option2 = random.randint(0, individualOptions - 1)
             while (option1 == option2):
                 option2 = random.randint(0, individualOptions - 1)
-            term = Term( random.randint(-100, 100), ["o" + str(option1), "o" + str(option2)])
+            term = Term(random.randint(-100, 100), ["o" + str(option1), "o" + str(option2)])
             given_model.append(term)
     generatedModel = Model(given_model)
     return generatedModel
@@ -400,16 +433,20 @@ def genModelfromString(txtModel):
     generatedModel = []
     for i in range(len(terms)):
         term = regex.split("[*]", terms[i])
-        coeff = 1
-        idx = -1
-        for index in range(len(term)):
-            if term[index].replace('.','',1).isdigit():
-                coeff = float(term[index])
-                idx = index
+        if len(term) == 1 and term[0].replace('.','',1).isdigit(): # this is the constant term
+            coeff = float(term)
+            generatedModel.append(Term(coeff))
+        else:
+            coeff = 1
+            idx = -1
+            for index in range(len(term)):
+                if term[index].replace('.','',1).isdigit():
+                    coeff = float(term[index])
+                    idx = index
 
-        if idx != -1: # we have a explicit coefficient, i.e., 2*o1 instead of o1
-            term.pop(idx)
-        generatedModel.append(Term(coeff, term))
+            if idx != -1: # we have a explicit coefficient, i.e., 2*o1 instead of o1
+                term.pop(idx)
+            generatedModel.append(Term(coeff, term))
 
     return generatedModel
 
@@ -431,13 +468,19 @@ def main():
     # Generate response data for the source model
 
     xTest = np.random.randint(2, size = (n, ndim))
-    yTestSource = np.zeros(n)
+    yTestSource2 = np.zeros(n)
 
+    tic()
+    yTestSource1 = startingModel.evaluateModelFast(xTest)
+    print(toc())
+
+    tic()
     for i in range(n):
-        yTestSource[i] = startingModel.evaluateModel(xTest[i, :])
+        yTestSource2[i] = startingModel.evaluateModel(xTest[i, :])
+    print(toc())
+
 
     evaluate2csv(startingModel, xTest)
-
 
     allModels = [copy.deepcopy(startingModel) for i in range(popsize)]
     best, bestFitness, bestHistory, allModels = genetic_algorithm(allModels, startingModel, numberIterations)
