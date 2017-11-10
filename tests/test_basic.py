@@ -57,8 +57,8 @@ class BasicTestSuite(unittest.TestCase):
         yTest1 = model.evaluateModelFast(xTest)
         yTest2 = model.evaluateModel(xTest)
 
-        if yTest1 == yTest2:
-            assert  True
+        if float(yTest1) == float(yTest2):
+            assert True
         else:
             assert False
 
