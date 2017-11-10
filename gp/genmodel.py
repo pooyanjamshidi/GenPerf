@@ -39,7 +39,8 @@ targetCorrelationHigh = 0.8
 targetCorrelationLow = 0.2
 
 class Model:
-    def __init__(self, terms):
+    def __init__(self, terms, ndim):
+        self.ndim = ndim
         self.allOptions = ["o" + str(i) for i in range(ndim)]
         self.constant = 0
         self.individualOptions = []
@@ -53,40 +54,45 @@ class Model:
             elif terms[i].isConstant():
                 self.constant = float(terms[i].options[0])
 
-    def evaluateModel(self, values):
-        if len(values) != ndim:
+    def evaluateModel(self, xTest):
+        if xTest.shape[1] != self.ndim:
             raise ValueError()
 
-        vars = {}
-        for i in range(ndim):
-            idx = int(regex.findall("\d+$", self.allOptions[i])[0])
-            vars[self.allOptions[i]] = values[idx]
+        L = xTest.shape[0]
+        r = np.zeros(L)
         f = sympify(self.__str__())
+        vars = {}
 
-        return f.subs(vars).evalf()
+        for i in range(L):
+            for j in range(self.ndim):
+                idx = int(regex.findall("\d+$", self.allOptions[j])[0])
+                vars[self.allOptions[j]] = xTest[i, idx]
+            r[i] = f.subs(vars).evalf()
+
+        return r
 
     def evaluateModelFast(self, xTest):
         Lo = len(self.individualOptions)
         Li = len(self.interactions)
         A = xTest
 
-        M = np.zeros(ndim + Li)
+        M = np.zeros(self.ndim + Li)
 
         for i in range(Lo):
-            M[self.allOptions.index(self.individualOptions[i].options[0].replace(" ", "")) - 1] = self.individualOptions[i].coefficient
+            M[self.allOptions.index(self.individualOptions[i].options[0].replace(" ", ""))] = self.individualOptions[i].coefficient
 
         for i in range(Li):
             options = self.interactions[i].options
             coeff = self.interactions[i].coefficient
-            M[ndim + i - 1] = coeff
+            M[self.ndim + i] = coeff
 
             A = np.append(A, A[:, self.allOptions.index(options[0].replace(" ", "")):self.allOptions.index(options[0].replace(" ", "")) + 1], axis=1)
             for idx in range(len(options) - 1):
-                A[:, ndim + i] = A[:, ndim + i] * A[:, self.allOptions.index(options[idx].replace(" ", ""))]
+                A[:, self.ndim + i] = A[:, self.ndim + i] * A[:, self.allOptions.index(options[idx + 1].replace(" ", ""))]
 
-        return np.dot(A, M) + self.constant
+        r = np.dot(A, M) + self.constant
 
-
+        return r
 
 
     def getInteractions(self):
@@ -110,7 +116,7 @@ class Model:
             self.individualOptions.pop(position)
 
     def addOption(self, coefficient):
-        if len(self.individualOptions) < ndim:
+        if len(self.individualOptions) < self.ndim:
             self.individualOptions.append(Term(coefficient, ["o" + str(len(self.individualOptions) + 1)]))
 
     def addInteraction(self, term):
@@ -149,6 +155,9 @@ class Model:
                 str2 += str(self.interactions[i]) + " + "
             else:
                 str2 += str(self.interactions[i])
+
+        if self.constant != 0:
+            str2 += " + " + str(self.constant)
         return str2
 
 
@@ -307,9 +316,7 @@ def selectParent(allModels, allFitnesses):
 
 def evaluate2csv(model, xTest):
     n = len(xTest)
-    yTest = np.zeros(n)
-    for i in range(n):
-        yTest[i] = model.evaluateModel(xTest[i, :])
+    yTest = model.evaluateModelFast(xTest)
 
     with open(model.name + ".csv", "w") as csvfile:
         fieldnames = ["y"]
@@ -376,6 +383,7 @@ def genetic_algorithm(allModels, startingModel, iterations=100):
     generation = 1
 
     n = 500
+    ndim = startingModel.ndim
     xTest = np.random.randint(2, size = (n, ndim))
     yTestSource = np.zeros(n)
     yTestTarget = np.zeros(n)
@@ -425,7 +433,7 @@ def genModel():
                 option2 = random.randint(0, individualOptions - 1)
             term = Term(random.randint(-100, 100), ["o" + str(option1), "o" + str(option2)])
             given_model.append(term)
-    generatedModel = Model(given_model)
+    generatedModel = Model(given_model, individualOptions)
     return generatedModel
 
 def genModelfromString(txtModel):
@@ -456,13 +464,12 @@ def main():
     # Generate the starting model
     # startingModel = genModel()
 
-    global ndim
-    ndim = 20
     n = 1000
+    ndim = 20
 
     perf_model_txt = "21 + 2.1*o1 + 4.2*o2 + 0.1*o3 + 100*o4 + 2*o5 + 0.1*o6 + o7 + o8 + o9 + o10 + 23*o1*o3 + 2*o4*o7 + o8*o9*o10"
     perf_model = genModelfromString(perf_model_txt)
-    startingModel = Model(perf_model)
+    startingModel = Model(perf_model, ndim=ndim)
     startingModel.name = "source"
 
     # Generate response data for the source model
@@ -475,8 +482,7 @@ def main():
     print(toc())
 
     tic()
-    for i in range(n):
-        yTestSource2[i] = startingModel.evaluateModel(xTest[i, :])
+    yTestSource2 = startingModel.evaluateModel(xTest)
     print(toc())
 
 
