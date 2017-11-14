@@ -9,15 +9,15 @@ from gp.lib import *
 
 # generic properties
 seed = 300
-popsize = 5
+popsize = 10
 maxNumberOfOptions = 10
-numberIterations = 100
+numberIterations = 1000
 
 # mutation properties
 probabilityOfMutatingCoefficient = 0.8
-probabilityOfAddingFeature = 0.1
+probabilityOfAddingFeature = 0.2
 probabilityOfRemovingFeature = 0.1
-probabilityOfAddingInteraction = 0.1
+probabilityOfAddingInteraction = 0.2
 probabilityOfRemovingInteraction = 0.1
 probabilityOfPairWiseInteraction = 0.8
 probabilityOfThreeWiseInteraction = 0.2
@@ -37,6 +37,7 @@ numberOfNegativFeatures = 3
 numberOfAbsolutCoefficientsAbove80 = 5
 targetCorrelationHigh = 0.8
 targetCorrelationLow = 0.2
+
 
 class Model:
     def __init__(self, terms, ndim):
@@ -79,21 +80,57 @@ class Model:
         M = np.zeros(self.ndim + Li)
 
         for i in range(Lo):
-            M[self.allOptions.index(self.individualOptions[i].options[0].replace(" ", ""))] = self.individualOptions[i].coefficient
+            M[self.allOptions.index(self.individualOptions[i].options[0].replace(" ", ""))] = self.individualOptions[
+                i].coefficient
 
         for i in range(Li):
             options = self.interactions[i].options
             coeff = self.interactions[i].coefficient
             M[self.ndim + i] = coeff
 
-            A = np.append(A, A[:, self.allOptions.index(options[0].replace(" ", "")):self.allOptions.index(options[0].replace(" ", "")) + 1], axis=1)
-            for idx in range(len(options) - 1):
-                A[:, self.ndim + i] = A[:, self.ndim + i] * A[:, self.allOptions.index(options[idx + 1].replace(" ", ""))]
+            A = np.append(A, A[:, self.allOptions.index(options[0].replace(" ", "")):self.allOptions.index(
+                options[0].replace(" ", "")) + 1], axis=1)
+            for idx in range(1, len(options)):
+                A[:, self.ndim + i] = A[:, self.ndim + i] * A[:, self.allOptions.index(options[idx].replace(" ", ""))]
 
         r = np.dot(A, M) + self.constant
 
         return r
 
+    def simplifyModel(self):
+        Lo = self.getNumberOfOptions()
+        Li = self.getNumberOfInteractions()
+        options2remove = []
+        for i in range(1, Lo):
+            currentOption = self.individualOptions[i]
+            for j in range(i):
+                if self.individualOptions[j].options[0].replace(" ", "") == currentOption.options[0].replace(" ", ""):
+                    self.individualOptions[j].coefficient = self.individualOptions[
+                                                                j].coefficient + currentOption.coefficient
+                    options2remove.append(i)
+                    break
+
+        interactions2remove = []
+        for i in range(1, Li):
+            currentInteraction = self.interactions[i]
+            for j in range(i):
+                if len(self.interactions[j].options) == len(currentInteraction.options):
+                    equalOptions = 0
+                    for k in range(len(self.interactions[j].options)):
+                        for l in range(len(currentInteraction.options)):
+                            if self.interactions[j].options[k] == currentInteraction.options[l]:
+                                equalOptions += 1
+                                break
+                    if equalOptions == len(self.interactions[j].options):
+                        self.interactions[j].coefficient = self.interactions[j].coefficient + currentInteraction.coefficient
+                        interactions2remove.append(i)
+                        break
+
+        for i in sorted(options2remove, reverse=True):
+            self.individualOptions.pop(i)
+
+        for i in sorted(interactions2remove, reverse=True):
+            self.interactions.pop(i)
 
     def getInteractions(self):
         return self.interactions
@@ -112,15 +149,26 @@ class Model:
             self.interactions.pop(position)
 
     def removeIndividualOption(self, position):
-        if len(self.individualOptions) >= 2: # for a model to be valid, at least one individual option is needed
+        if len(self.individualOptions) > 1:  # for a model to be valid, at least one individual option is needed
             self.individualOptions.pop(position)
 
     def addOption(self, coefficient):
         if len(self.individualOptions) < self.ndim:
-            self.individualOptions.append(Term(coefficient, ["o" + str(len(self.individualOptions) + 1)]))
+            for i in range(self.ndim):
+                proposedOption = "o" + str(i)
+                shouldBeAdded = True
+                for j in range(len(self.individualOptions)):
+                    if proposedOption == self.individualOptions[j].options[0].replace(" ", ""):
+                        shouldBeAdded = False
+                        break
+                if shouldBeAdded:
+                    self.individualOptions.append(Term(coefficient, [proposedOption]))
+                    break
+        self.simplifyModel()
 
     def addInteraction(self, term):
         self.interactions.append(term)
+        self.simplifyModel()
 
     def changeTerm(self, newTerm, position):
         if position < len(self.individualOptions):
@@ -162,7 +210,7 @@ class Model:
 
 
 class Term:
-    def __init__(self, coefficient, options = "1"): # The default value is for the constant term
+    def __init__(self, coefficient, options="1"):  # The default value is for the constant term
         self.coefficient = coefficient
         self.options = options
 
@@ -170,7 +218,7 @@ class Term:
         str2 = str(self.coefficient) + " * "
         if len(self.options) > 1:
             for i in range(len(self.options)):
-                if i < len(self.options)-1:
+                if i < len(self.options) - 1:
                     str2 += str(self.options[i]) + " * "
                 else:
                     str2 += str(self.options[i])
@@ -179,13 +227,13 @@ class Term:
         return str2
 
     def isConstant(self):
-        if len(self.options) == 1 and self.options[0].replace(" ", "").replace('.','',1).isdigit():
+        if len(self.options) == 1 and self.options[0].replace(" ", "").replace('.', '', 1).isdigit():
             return True
         else:
             return False
 
     def isIndividualOption(self):
-        if len(self.options) == 1 and not self.options[0].replace(" ", "").replace('.','',1).isdigit():
+        if len(self.options) == 1 and not self.options[0].replace(" ", "").replace('.', '', 1).isdigit():
             return True
         else:
             return False
@@ -196,20 +244,22 @@ class Term:
         else:
             return True
 
+
 # KL divergence
 def KLdiv(p, q):
-   """Kullback-Leibler divergence D(P || Q) for discrete distributions
+    """Kullback-Leibler divergence D(P || Q) for discrete distributions
 
-    Parameters
-    ----------
-    p, q : array-like, dtype=float, shape=n
-    Discrete probability distributions.
-   """
-   p = np.asarray(p, dtype=np.float)
-   q = np.asarray(q, dtype=np.float)
-   div = np.sum(np.where(p != 0, p * np.log(p / q), 0))
+     Parameters
+     ----------
+     p, q : array-like, dtype=float, shape=n
+     Discrete probability distributions.
+    """
+    p = np.asarray(p, dtype=np.float)
+    q = np.asarray(q, dtype=np.float)
+    div = np.sum(np.where(p != 0, p * np.log(p / q), 0))
 
-   return div
+    return div
+
 
 # Mutation
 def mutate(model):
@@ -224,20 +274,20 @@ def mutate(model):
     if probabilityOfAddingInteraction > random.uniform(0, 1):
         if probabilityOfPairWiseInteraction > random.uniform(0, 1):
             # pairwise
-            option1 = random.randint(0, model.getNumberOfOptions())
-            option2 = random.randint(0, model.getNumberOfOptions())
+            option1 = random.randint(0, model.getNumberOfOptions() - 1)
+            option2 = random.randint(0, model.getNumberOfOptions() - 1)
             while (option1 == option2):
-                option2 = random.randint(0, model.getNumberOfOptions())
+                option2 = random.randint(0, model.getNumberOfOptions() - 1)
             term = Term(random.randint(-100, 100), ["o" + str(option1), "o" + str(option2)])
         else:
             # three-wise
-            option1 = random.randint(0, model.getNumberOfOptions())
-            option2 = random.randint(0, model.getNumberOfOptions())
+            option1 = random.randint(0, model.getNumberOfOptions() - 1)
+            option2 = random.randint(0, model.getNumberOfOptions() - 1)
             while (option1 == option2):
-                option2 = random.randint(0, model.getNumberOfOptions())
-            option3 = random.randint(0, model.getNumberOfOptions())
+                option2 = random.randint(0, model.getNumberOfOptions() - 1)
+            option3 = random.randint(0, model.getNumberOfOptions() - 1)
             while (option1 == option3 or option2 == option3):
-                option3 = random.randint(0, model.getNumberOfOptions())
+                option3 = random.randint(0, model.getNumberOfOptions() - 1)
             term = Term(random.randint(-100, 100), ["o" + str(option1), "o" + str(option2), "o" + str(option3)])
         model.addInteraction(term)
 
@@ -327,26 +377,25 @@ def evaluate2csv(model, xTest):
             writer.writerow({"y": yTest[i]})
 
 
-def assessFitness(model, yTestSource = None, yTestTarget = None, weights = None):
+def assessFitness(model, yTestSource=None, yTestTarget=None, weights=None):
     # compute klDivergence not implemented
 
     # calculating kernel densities for source and target
 
-    kernel_s = stats.gaussian_kde(yTestSource)
-    kernel_t = stats.gaussian_kde(yTestTarget)
+    # kernel_s = stats.gaussian_kde(yTestSource)
+    # kernel_t = stats.gaussian_kde(yTestTarget)
 
-
-    corr = abs(np.corrcoef(yTestSource, yTestTarget)[1,0])
+    corr = abs(np.corrcoef(yTestSource, yTestTarget)[1, 0])
     if corr < targetCorrelationLow:
         correlationDissimilarity = 1
     else:
         correlationDissimilarity = targetCorrelationLow / corr
 
-    kl = KLdiv(kernel_s.pdf(yTestSource), kernel_t.pdf(yTestTarget))
-    if not np.isnan(kl):
-        perfdistSimilarity = 1 / (1 + kl)
-    else:
-        perfdistSimilarity = 0
+    # kl = KLdiv(kernel_s.pdf(yTestSource), kernel_t.pdf(yTestTarget))
+    # if not np.isnan(kl):
+    #     perfdistSimilarity = 1 / (1 + kl)
+    # else:
+    #     perfdistSimilarity = 0
     interactionSimilarity = 1 / (1 + abs(model.getNumberOfInteractions() - targetNumberOfInteractions))
     optionSimilarity = 1 / (1 + abs(model.getNumberOfOptions() - targetNumberOfIndividualOptions))
 
@@ -367,9 +416,10 @@ def assessFitness(model, yTestSource = None, yTestTarget = None, weights = None)
     # influencingSimilarity = 1 / (1 + abs(highCoefficients - numberOfAbsolutCoefficientsAbove80))
 
     if weights != None:
-        fitness = np.average([interactionSimilarity, optionSimilarity, correlationDissimilarity, perfdistSimilarity])
+        fitness = np.average([interactionSimilarity, optionSimilarity, correlationDissimilarity])
     else:
-        fitness = np.average([interactionSimilarity, optionSimilarity, correlationDissimilarity, perfdistSimilarity], weights=weights)
+        fitness = np.average([interactionSimilarity, optionSimilarity, correlationDissimilarity],
+                             weights=weights)
 
     if np.isnan(fitness):
         print("fitness is nan")
@@ -382,14 +432,11 @@ def genetic_algorithm(allModels, startingModel, iterations=100):
     bestHistory = []
     generation = 1
 
-    n = 500
+    n = 1000
     ndim = startingModel.ndim
-    xTest = np.random.randint(2, size = (n, ndim))
-    yTestSource = np.zeros(n)
-    yTestTarget = np.zeros(n)
+    xTest = np.random.randint(2, size=(n, ndim))
 
-    for idx in range(n):
-        yTestSource[idx] = startingModel.evaluateModel(xTest[idx, :])
+    yTestSource = startingModel.evaluateModelFast(xTest)
 
     while (generation <= iterations):
         allFitness = []
@@ -398,8 +445,7 @@ def genetic_algorithm(allModels, startingModel, iterations=100):
         # assessing the fitness of all models
         for i in range(len(allModels)):
 
-            for idx in range(n):
-                yTestTarget[idx] = allModels[i].evaluateModel(xTest[idx, :])
+            yTestTarget = allModels[i].evaluateModelFast(xTest)
 
             fitness = assessFitness(allModels[i], yTestSource, yTestTarget)
             allFitness.append(fitness)
@@ -412,8 +458,8 @@ def genetic_algorithm(allModels, startingModel, iterations=100):
         allModels = breed(allModels, allFitness)
         generation += 1
         print("%d\n" % generation)
-        #stdout.flush()
-    #stdout.write("\n")
+        # stdout.flush()
+    # stdout.write("\n")
     return best, bestFitness, bestHistory, allModels
 
 
@@ -436,27 +482,29 @@ def genModel():
     generatedModel = Model(given_model, individualOptions)
     return generatedModel
 
+
 def genModelfromString(txtModel):
     terms = regex.split("[+-]\s+", txtModel)
     generatedModel = []
     for i in range(len(terms)):
         term = regex.split("[*]", terms[i])
-        if len(term) == 1 and term[0].replace('.','',1).isdigit(): # this is the constant term
+        if len(term) == 1 and term[0].replace('.', '', 1).isdigit():  # this is the constant term
             coeff = float(term)
             generatedModel.append(Term(coeff))
         else:
             coeff = 1
             idx = -1
             for index in range(len(term)):
-                if term[index].replace('.','',1).isdigit():
+                if term[index].replace('.', '', 1).isdigit():
                     coeff = float(term[index])
                     idx = index
 
-            if idx != -1: # we have a explicit coefficient, i.e., 2*o1 instead of o1
+            if idx != -1:  # we have a explicit coefficient, i.e., 2*o1 instead of o1
                 term.pop(idx)
             generatedModel.append(Term(coeff, term))
 
     return generatedModel
+
 
 def main():
     np.random.seed(seed)
@@ -474,17 +522,16 @@ def main():
 
     # Generate response data for the source model
 
-    xTest = np.random.randint(2, size = (n, ndim))
-    yTestSource2 = np.zeros(n)
+    xTest = np.random.randint(2, size=(n, ndim))
+    # yTestSource2 = np.zeros(n)
 
-    tic()
-    yTestSource1 = startingModel.evaluateModelFast(xTest)
-    print(toc())
-
-    tic()
-    yTestSource2 = startingModel.evaluateModel(xTest)
-    print(toc())
-
+    # tic()
+    # yTestSource1 = startingModel.evaluateModelFast(xTest)
+    # print(toc())
+    #
+    # tic()
+    # yTestSource2 = startingModel.evaluateModel(xTest)
+    # print(toc())
 
     evaluate2csv(startingModel, xTest)
 
