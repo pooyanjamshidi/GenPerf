@@ -12,6 +12,7 @@ seed = 300
 popsize = 10
 maxNumberOfOptions = 10
 numberIterations = 1000
+coeff_scale = 10
 
 # mutation properties
 probabilityOfMutatingCoefficient = 0.8
@@ -21,9 +22,9 @@ probabilityOfAddingInteraction = 0.2
 probabilityOfRemovingInteraction = 0.1
 probabilityOfPairWiseInteraction = 0.8
 probabilityOfThreeWiseInteraction = 0.2
-probabilityOfSwitchingSign = 0.05
+probabilityOfSwitchingSign = 0.5
 probabilityOfUniformCrossover = 0.1
-probabilityOfBreeding = 0.5
+probabilityOfBreeding = 0.05
 standardDeviationForMutation = 10
 
 # not implemented here
@@ -278,7 +279,7 @@ def mutate(model):
             option2 = random.randint(0, model.getNumberOfOptions() - 1)
             while (option1 == option2):
                 option2 = random.randint(0, model.getNumberOfOptions() - 1)
-            term = Term(random.randint(-100, 100), ["o" + str(option1), "o" + str(option2)])
+            term = Term(random.randint(-coeff_scale, coeff_scale), ["o" + str(option1), "o" + str(option2)])
         else:
             # three-wise
             option1 = random.randint(0, model.getNumberOfOptions() - 1)
@@ -288,19 +289,20 @@ def mutate(model):
             option3 = random.randint(0, model.getNumberOfOptions() - 1)
             while (option1 == option3 or option2 == option3):
                 option3 = random.randint(0, model.getNumberOfOptions() - 1)
-            term = Term(random.randint(-100, 100), ["o" + str(option1), "o" + str(option2), "o" + str(option3)])
+            term = Term(random.randint(-coeff_scale, coeff_scale), ["o" + str(option1), "o" + str(option2), "o" + str(option3)])
         model.addInteraction(term)
 
     # add option?
     if probabilityOfAddingFeature > random.uniform(0, 1):
-        model.addOption(random.randint(-100, 100))
+        model.addOption(random.randint(-coeff_scale, coeff_scale))
 
     # mutating the coefficient for options and interactions + sign switch
     for i in range(len(model.getIndividualOptions())):
         if probabilityOfMutatingCoefficient > random.uniform(0, 1):
             model.getIndividualOptions()[i].coefficient += np.random.normal(0, standardDeviationForMutation)
         if probabilityOfSwitchingSign > random.uniform(0, 1):
-            model.getIndividualOptions()[i].coefficient *= -1
+            if model.getIndividualOptions()[i].coefficient < coeff_scale:
+                model.getIndividualOptions()[i].coefficient *= -1
     for i in range(len(model.getInteractions())):
         if probabilityOfMutatingCoefficient > random.uniform(0, 1):
             model.getInteractions()[i].coefficient += np.random.normal(0, standardDeviationForMutation)
