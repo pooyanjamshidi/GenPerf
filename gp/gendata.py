@@ -14,8 +14,8 @@ target_model = genModelfromString(target)
 sourceModel = Model(source_model, ndim=ndim)
 targetModel = Model(target_model, ndim=ndim)
 
-sourceModel.name = "source1"
-targetModel.name = "target1"
+sourceModel.name = "source2"
+targetModel.name = "target2"
 
 
 evaluate2csv(sourceModel, xTest)

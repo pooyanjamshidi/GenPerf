@@ -371,12 +371,16 @@ def evaluate2csv(model, xTest):
     yTest = model.evaluateModelFast(xTest)
 
     with open(model.name + ".csv", "w") as csvfile:
-        fieldnames = ["y"]
+        fieldnames = model.allOptions + ["y"]
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
         writer.writeheader()
         for i in range(n):
-            writer.writerow({"y": yTest[i]})
+            conf = dict(zip(model.allOptions, xTest[0]))
+            res = {"y": yTest[i]}
+            w = conf
+            w.update(res)
+            writer.writerow(w)
 
 
 def assessFitness(model, yTestSource=None, yTestTarget=None, weights=None):
