@@ -54,7 +54,7 @@ class Model:
             elif terms[i].isIndividualOption():
                 self.individualOptions.append(terms[i])
             elif terms[i].isConstant():
-                self.constant = float(terms[i].options[0])
+                self.constant = float(terms[i].coefficient)
 
     def evaluateModel(self, xTest):
         if xTest.shape[1] != self.ndim:
@@ -216,7 +216,7 @@ class Term:
         self.options = options
 
     def __str__(self):
-        str2 = str(self.coefficient) + " * "
+        str2 = str("{0:.2f}".format(self.coefficient)) + " * "
         if len(self.options) > 1:
             for i in range(len(self.options)):
                 if i < len(self.options) - 1:
@@ -228,13 +228,13 @@ class Term:
         return str2
 
     def isConstant(self):
-        if len(self.options) == 1 and self.options[0].replace(" ", "").replace('.', '', 1).isdigit():
+        if len(self.options) == 1 and is_number(self.options[0]):
             return True
         else:
             return False
 
     def isIndividualOption(self):
-        if len(self.options) == 1 and not self.options[0].replace(" ", "").replace('.', '', 1).isdigit():
+        if len(self.options) == 1 and not is_number(self.options[0]):
             return True
         else:
             return False
@@ -486,18 +486,19 @@ def genModel():
 
 
 def genModelfromString(txtModel):
-    terms = regex.split("[+-]\s+", txtModel)
+    txtModel = txtModel.replace(" ", "")
+    terms = regex.split("[+]", txtModel)
     generatedModel = []
     for i in range(len(terms)):
         term = regex.split("[*]", terms[i])
-        if len(term) == 1 and term[0].replace('.', '', 1).isdigit():  # this is the constant term
-            coeff = float(term)
+        if len(term) == 1 and is_number(term[0]):  # this is the constant term
+            coeff = float(term[0])
             generatedModel.append(Term(coeff))
         else:
             coeff = 1
             idx = -1
             for index in range(len(term)):
-                if term[index].replace('.', '', 1).isdigit():
+                if is_number(term[index]):
                     coeff = float(term[index])
                     idx = index
 
