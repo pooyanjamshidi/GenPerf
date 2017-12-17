@@ -9,8 +9,11 @@ class AdvancedTestSuite(unittest.TestCase):
     """Advanced test cases."""
 
     def test_thoughts(self):
-        self.assertIsNone(sample.hmm())
+        pass
 
 
 if __name__ == '__main__':
     unittest.main()
+
+suite = unittest.TestLoader().loadTestsFromTestCase(AdvancedTestSuite)
+unittest.TextTestRunner(verbosity=2).run(suite)

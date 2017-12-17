@@ -32,8 +32,8 @@ probabilityOfChangingCoefficientOfInfluencingOptions = 0.1
 probabilityOfChangingCoefficientOfNonInfluencingOptions = 0.1
 
 # goal
-targetNumberOfInteractions = 5
-targetNumberOfIndividualOptions = 12
+targetNumberOfInteractions = 3
+targetNumberOfIndividualOptions = 5
 numberOfNegativFeatures = 3
 numberOfAbsolutCoefficientsAbove80 = 5
 targetCorrelationHigh = 0.8
@@ -522,7 +522,7 @@ def main():
     n = 1000
     ndim = 20
 
-    perf_model_txt = "21 + 2.1*o1 + 4.2*o2 + 0.1*o3 + 100*o4 + 2*o5 + 0.1*o6 + o7 + o8 + o9 + o10 + 23*o1*o3 + 2*o4*o7 + o8*o9*o10"
+    perf_model_txt = "207.686621093751 * o0 + 16.0597070312499 * o1 + 16.8820507812493 * o2 + 12.0287695312493 * o3 + 14.8187304687495 * o4"  # "21 + 2.1*o1 + 4.2*o2 + 0.1*o3 + 100*o4 + 2*o5 + 0.1*o6 + o7 + o8 + o9 + o10 + 23*o1*o3 + 2*o4*o7 + o8*o9*o10"
     perf_model = genModelfromString(perf_model_txt)
     startingModel = Model(perf_model, ndim=ndim)
     startingModel.name = "source"

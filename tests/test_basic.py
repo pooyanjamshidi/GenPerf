@@ -4,10 +4,11 @@ import unittest
 from gp.genmodel import *
 import os.path
 
+
 class BasicTestSuite(unittest.TestCase):
     """Basic test cases."""
 
-    def test_evaluate_model_2csv(self):
+    def test_evaluate_model_to_csv(self):
         n = 8
         ndim = 4
         perf_model_txt = "2*o1 + 3*o1*o2 + 4*o2"

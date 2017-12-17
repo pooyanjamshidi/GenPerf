@@ -1,6 +1,6 @@
 # GenPerf
 
-## Intorduction
+## Introduction
 GenPerf is a [symbolic regression](https://en.wikipedia.org/wiki/Symbolic_regression) tool that generates synthetic data for 
 evaluating transfer learning approaches. At a high level, GenPerf receives 
 a source performance model that has been specified with the 
@@ -8,10 +8,10 @@ a source performance model that has been specified with the
 generates genetic mutations of the source model to create a target 
 performance model that has some similarities to the source model. 
 The similarities are based on the core insights in our 
-[empirical study](https://arxiv.org/abs/1709.02280) are are based on 
+[empirical study](https://arxiv.org/abs/1709.02280) based on 
 several criteria: 
 * Similarity in terms of correlation of source and target response
-* Similarity in terms of number of inlfuential options
+* Similarity in terms of number of influential options
 * Similarity in terms of number of option interactions
 * Similarity in terms of performance distribution
 
