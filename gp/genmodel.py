@@ -1,4 +1,5 @@
 import numpy as np
+import os
 from scipy import stats
 import re as regex
 import random
@@ -11,8 +12,11 @@ from gp.lib import *
 seed = 300
 popsize = 10
 maxNumberOfOptions = 10
-numberIterations = 1000
+numberIterations = 20
+
 coeff_scale = 10
+min_coeff = 5
+max_coeff = 20
 
 # mutation properties
 probabilityOfMutatingCoefficient = 0.8
@@ -48,13 +52,13 @@ class Model:
         self.individualOptions = []
         self.interactions = []
         self.name = ""
-        for i in range(len(terms)):
-            if terms[i].isInteraction():
-                self.interactions.append(terms[i])
-            elif terms[i].isIndividualOption():
-                self.individualOptions.append(terms[i])
-            elif terms[i].isConstant():
-                self.constant = float(terms[i].coefficient)
+        for term in terms:
+            if term.isInteraction():
+                self.interactions.append(term)
+            elif term.isIndividualOption():
+                self.individualOptions.append(term)
+            elif term.isConstant():
+                self.constant = float(term.coefficient)
 
     def evaluateModel(self, xTest):
         if xTest.shape[1] != self.ndim:
@@ -277,17 +281,17 @@ def mutate(model):
             # pairwise
             option1 = random.randint(0, model.getNumberOfOptions() - 1)
             option2 = random.randint(0, model.getNumberOfOptions() - 1)
-            while (option1 == option2):
+            while option1 == option2:
                 option2 = random.randint(0, model.getNumberOfOptions() - 1)
             term = Term(random.randint(-coeff_scale, coeff_scale), ["o" + str(option1), "o" + str(option2)])
         else:
             # three-wise
             option1 = random.randint(0, model.getNumberOfOptions() - 1)
             option2 = random.randint(0, model.getNumberOfOptions() - 1)
-            while (option1 == option2):
+            while option1 == option2:
                 option2 = random.randint(0, model.getNumberOfOptions() - 1)
             option3 = random.randint(0, model.getNumberOfOptions() - 1)
-            while (option1 == option3 or option2 == option3):
+            while option1 == option3 or option2 == option3:
                 option3 = random.randint(0, model.getNumberOfOptions() - 1)
             term = Term(random.randint(-coeff_scale, coeff_scale), ["o" + str(option1), "o" + str(option2), "o" + str(option3)])
         model.addInteraction(term)
@@ -421,18 +425,16 @@ def assessFitness(model, yTestSource=None, yTestTarget=None, weights=None):
     #         highCoefficients += 1
     # influencingSimilarity = 1 / (1 + abs(highCoefficients - numberOfAbsolutCoefficientsAbove80))
 
-    if weights != None:
-        fitness = np.average([interactionSimilarity, optionSimilarity, correlationDissimilarity])
+    if weights is not None:
+        fitness = np.average([interactionSimilarity, optionSimilarity, correlationDissimilarity], weights=weights)
     else:
-        fitness = np.average([interactionSimilarity, optionSimilarity, correlationDissimilarity],
-                             weights=weights)
+        fitness = np.mean([interactionSimilarity, optionSimilarity, correlationDissimilarity])
 
-    if np.isnan(fitness):
-        print("fitness is nan")
     return fitness
 
 
 def genetic_algorithm(allModels, startingModel, iterations=100):
+
     best = None
     bestFitness = None
     bestHistory = []
@@ -444,7 +446,7 @@ def genetic_algorithm(allModels, startingModel, iterations=100):
 
     yTestSource = startingModel.evaluateModelFast(xTest)
 
-    while (generation <= iterations):
+    while generation <= iterations:
         allFitness = []
         for i in range(len(allModels)):
             allModels[i] = mutate(allModels[i])
@@ -456,7 +458,7 @@ def genetic_algorithm(allModels, startingModel, iterations=100):
             fitness = assessFitness(allModels[i], yTestSource, yTestTarget)
             allFitness.append(fitness)
             # allIndividuals.append((generation,fitness))
-            if best == None or fitness > bestFitness:
+            if best is None or fitness > bestFitness:
                 best = allModels[i]
                 bestFitness = fitness
                 bestHistory.append((allModels[i], bestFitness))
@@ -469,23 +471,25 @@ def genetic_algorithm(allModels, startingModel, iterations=100):
     return best, bestFitness, bestHistory, allModels
 
 
-def genModel():
+def genModel(individualOptions, interactions):
     given_model = []
-    size = random.randint(5, 10)
-    individualOptions = int(size * 0.8)
-    interactions = size - individualOptions
+    # size = random.randint(5, 10)
+    # individualOptions = int(size * 0.8)
+    # interactions = size - individualOptions
+    size = individualOptions + interactions
     for i in range(size):
         if i < individualOptions:
-            term = Term(random.randint(-100, 100), ["o" + str(i)])
+            term = Term(random.randint(-min_coeff, max_coeff), ["o" + str(i)])
             given_model.append(term)
         else:
             option1 = random.randint(0, individualOptions - 1)
             option2 = random.randint(0, individualOptions - 1)
-            while (option1 == option2):
+            while option1 == option2:
                 option2 = random.randint(0, individualOptions - 1)
-            term = Term(random.randint(-100, 100), ["o" + str(option1), "o" + str(option2)])
+            term = Term(random.randint(-min_coeff, max_coeff), ["o" + str(option1), "o" + str(option2)])
             given_model.append(term)
-    generatedModel = Model(given_model, individualOptions)
+    # generatedModel = Model(given_model, individualOptions)
+    generatedModel = given_model
     return generatedModel
 
 
@@ -513,11 +517,37 @@ def genModelfromString(txtModel):
     return generatedModel
 
 
+def genListOfModels():
+    global targetNumberOfInteractions, targetNumberOfIndividualOptions, targetCorrelationLow
+    rep = 5
+    opt = [5, 5, 5, 10, 10, 10, 20, 20, 20, 30, 30, 30, 50, 50, 50]
+    int = [1, 5, 7, 5,  10, 20, 10, 20, 40, 10, 20, 50, 10, 50, 100]
+    dim = [10, 10, 10, 20, 20, 20, 30, 30, 30, 50, 50, 50, 100, 100, 100]
+
+    source_models = []
+    target_models = []
+    for i in range(len(opt)):
+        for j in range(rep):
+            source = genModel(opt[i], int[i])
+            sourceModel = Model(source, ndim=dim[i])
+            source_model = sourceModel.__str__()
+            source_models.append(source_model)
+            targetNumberOfIndividualOptions = opt[i] + floor(opt[i]/5)
+            targetNumberOfInteractions = int[i] + floor(opt[i]/5)
+            allModels = [copy.deepcopy(sourceModel) for i in range(popsize)]
+            best, bestFitness, bestHistory, allModels = genetic_algorithm(allModels, sourceModel, numberIterations)
+            target_model = best.__str__()
+            target_models.append(target_model)
+            with open('data/' + 'opt' + str(opt[i]) + '-int' + str(int[i]) + '-' + str(dim[i]) + '-iter' + str(j) + '.txt', 'w') as file:
+                file.write('{0}\n{1}'.format(source_model, target_model))
+    return source_models, target_models
+
+
 def main():
     np.random.seed(seed)
 
     # Generate the starting model
-    # startingModel = genModel()
+    startingModels = genListOfModels()
 
     n = 1000
     ndim = 20
