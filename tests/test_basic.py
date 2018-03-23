@@ -31,7 +31,7 @@ class BasicTestSuite(unittest.TestCase):
         xTest = np.array([[0, 1, 1, 0]])
         yTest = model.evaluateModelFast(xTest)
         if yTest == 2 + 3 + 4:
-            assert  True
+            assert True
         else:
             assert False
 
@@ -44,7 +44,7 @@ class BasicTestSuite(unittest.TestCase):
         xTest = np.array([[1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
         yTest = model.evaluateModelFast(xTest)
         if yTest == 21 + 2.1 + 4.2:
-            assert  True
+            assert True
         else:
             assert False
 

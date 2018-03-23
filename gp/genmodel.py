@@ -520,9 +520,9 @@ def genModelfromString(txtModel):
 def genListOfModels():
     global targetNumberOfInteractions, targetNumberOfIndividualOptions, targetCorrelationLow
     rep = 5
-    opt = [5, 5, 5, 10, 10, 10, 20, 20, 20, 30, 30, 30, 50, 50, 50]
-    int = [1, 5, 7, 5,  10, 20, 10, 20, 40, 10, 20, 50, 10, 50, 100]
-    dim = [10, 10, 10, 20, 20, 20, 30, 30, 30, 50, 50, 50, 100, 100, 100]
+    opt = [100]
+    int = [200]
+    dim = [200]
 
     source_models = []
     target_models = []
@@ -532,8 +532,8 @@ def genListOfModels():
             sourceModel = Model(source, ndim=dim[i])
             source_model = sourceModel.__str__()
             source_models.append(source_model)
-            targetNumberOfIndividualOptions = opt[i] + floor(opt[i]/5)
-            targetNumberOfInteractions = int[i] + floor(opt[i]/5)
+            targetNumberOfIndividualOptions = opt[i] + floor(opt[i]/10)
+            targetNumberOfInteractions = int[i] + floor(opt[i]/10)
             allModels = [copy.deepcopy(sourceModel) for i in range(popsize)]
             best, bestFitness, bestHistory, allModels = genetic_algorithm(allModels, sourceModel, numberIterations)
             target_model = best.__str__()
@@ -543,11 +543,41 @@ def genListOfModels():
     return source_models, target_models
 
 
+def genListOfModelsVaryingDifficulty():
+    global targetNumberOfInteractions, targetNumberOfIndividualOptions, targetCorrelationLow
+    rep = 3
+    opt = [5]
+    int = [7]
+    dim = [10]
+    corr = [0.05, 0.1, 0.5, 0.8, 0.95]
+
+    source_models = []
+    target_models = []
+    for i in range(len(opt)):
+        for j in range(rep):
+            for k in range(len(corr)):
+                source = genModel(opt[i], int[i])
+                sourceModel = Model(source, ndim=dim[i])
+                source_model = sourceModel.__str__()
+                source_models.append(source_model)
+                targetNumberOfIndividualOptions = opt[i] + floor(opt[i]/5)
+                targetNumberOfInteractions = int[i] + floor(opt[i]/5)
+                targetCorrelationLow = corr[k]
+                allModels = [copy.deepcopy(sourceModel) for i in range(popsize)]
+                best, bestFitness, bestHistory, allModels = genetic_algorithm(allModels, sourceModel, numberIterations)
+                target_model = best.__str__()
+                target_models.append(target_model)
+                with open('data/' + 'opt' + str(opt[i]) + '-int' + str(int[i]) + '-' + str(dim[i]) + '-iter' + str(j) + '-corr' + str(corr[k]) + '.txt', 'w') as file:
+                    file.write('{0}\n{1}'.format(source_model, target_model))
+    return source_models, target_models
+
+
 def main():
     np.random.seed(seed)
 
     # Generate the starting model
     startingModels = genListOfModels()
+    # genListOfModelsVaryingDifficulty()
 
     n = 1000
     ndim = 20
